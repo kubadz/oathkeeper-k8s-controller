@@ -98,4 +98,165 @@ var _ = Describe("Rule", func() {
 			Expect(k8sClient.Get(context.TODO(), key, created)).ToNot(Succeed())
 		})
 	})
+
+	var template = `[
+  {
+    "upstream": {
+      "url": "http://my-backend-service1",
+      "strip_path": "/api/v1",
+      "preserve_host": true
+    },
+    "id": "foo1.default",
+    "match": {
+      "url": "http://my-app/some-route1",
+      "methods": [
+        "GET",
+        "POST"
+      ]
+    },
+    "authenticators": [
+      {
+        "handler": "handler1",
+        "config": {
+          "key1": "val1"
+        }
+      }
+    ],
+    "mutator": {
+      "handler": "handler2",
+      "config": {
+        "key1": [
+          "val1",
+          "val2",
+          "val3"
+        ]
+      }
+    }
+  },
+  {
+    "upstream": {
+      "url": "http://my-backend-service2",
+      "preserve_host": false
+    },
+    "id": "foo2.default",
+    "match": {
+      "url": "http://my-app/some-route2",
+      "methods": [
+        "GET",
+        "POST"
+      ]
+    },
+    "authenticators": [
+      {
+        "handler": "handler1",
+        "config": {
+          "key1": "val1"
+        }
+      },
+      {
+        "handler": "handler2",
+        "config": {
+          "key1": [
+            "val1",
+            "val2",
+            "val3"
+          ]
+        }
+      }
+    ]
+  }
+]`
+
+	sampleConfig := `{
+  "key1": "val1"
+}
+`
+
+	sampleConfig2 := `{
+  "key1": [
+    "val1",
+    "val2",
+    "val3"
+  ]
+}
+`
+
+	Context("ToOathkeeperRules", func() {
+
+		It("Should return a JSON array of raw Oathkeeper rules", func() {
+
+			s := "/api/v1"
+
+			t1 := true
+			t2 := false
+
+			h1 := &Handler{
+				Name: "handler1",
+				Config: &runtime.RawExtension{
+					Raw: []byte(sampleConfig),
+				},
+			}
+
+			h2 := &Handler{
+				Name: "handler2",
+				Config: &runtime.RawExtension{
+					Raw: []byte(sampleConfig2),
+				},
+			}
+
+			rs1 := RuleSpec{
+				Upstream: &Upstream{
+					URL:          "http://my-backend-service1",
+					StripPath:    &s,
+					PreserveHost: &t1,
+				},
+				Match: &Match{
+					URL:     "http://my-app/some-route1",
+					Methods: []string{"GET", "POST"},
+				},
+				Authenticators: []*Authenticator{&Authenticator{h1}},
+				Mutator:        &Mutator{h2},
+			}
+
+			rs2 := RuleSpec{
+				Upstream: &Upstream{
+					URL:          "http://my-backend-service2",
+					PreserveHost: &t2,
+				},
+				Match: &Match{
+					URL:     "http://my-app/some-route2",
+					Methods: []string{"GET", "POST"},
+				},
+				Authenticators: []*Authenticator{&Authenticator{h1}, {h2}},
+			}
+
+			created1 := Rule{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo1",
+					Namespace: "default",
+				},
+				Spec:   rs1,
+				Status: RuleStatus{},
+			}
+
+			created2 := Rule{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo2",
+					Namespace: "default",
+				},
+				Spec:   rs2,
+				Status: RuleStatus{},
+			}
+
+			list := &RuleList{Items: []Rule{created1, created2}}
+
+			By("transforming the receiver into a slice of bytes")
+
+			raw, err := list.ToOathkeeperRules()
+
+			Expect(err).To(BeNil())
+			Expect(string(raw)).To(Equal(template))
+
+		})
+	})
 })

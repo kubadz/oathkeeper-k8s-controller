@@ -16,6 +16,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"encoding/json"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -80,6 +81,24 @@ type Handler struct {
 	Name string `json:"handler"`
 	// +kubebuilder:validation:Type=object
 	Config *runtime.RawExtension `json:"config,omitempty"`
+}
+
+func (rl RuleList) ToOathkeeperRules() ([]byte, error) {
+
+	var rules []*RuleJSON
+
+	for _, item := range rl.Items {
+		rules = append(rules, item.ToRuleJSON())
+	}
+
+	return json.MarshalIndent(rules, "", "  ")
+}
+
+func (r Rule) ToRuleJSON() *RuleJSON {
+	return &RuleJSON{
+		ID:       r.Name + "." + r.Namespace,
+		RuleSpec: &r.Spec,
+	}
 }
 
 func init() {
