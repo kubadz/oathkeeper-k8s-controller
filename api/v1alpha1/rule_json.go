@@ -17,10 +17,6 @@ func (rj RuleJSON) MarshalJSON() ([]byte, error) {
 
 	type Alias RuleJSON
 
-	if rj.Upstream.PreserveHost == nil {
-
-	}
-
 	return json.Marshal(&struct {
 		Upstream *UpstreamJSON `json:"upstream"`
 		Alias
