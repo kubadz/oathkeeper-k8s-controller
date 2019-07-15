@@ -66,37 +66,37 @@ type Upstream struct {
 
 // Match defines the URL(s) that an access rule should match.
 type Match struct {
-	//URL is the URL that should be matched. It supports regex templates.
+	// URL is the URL that should be matched. It supports regex templates.
 	URL     string   `json:"url"`
-	//Methods represent an array of HTTP methods (e.g. GET, POST, PUT, DELETE, ...)
+	// Methods represent an array of HTTP methods (e.g. GET, POST, PUT, DELETE, ...)
 	Methods []string `json:"methods"`
 }
 
-//Authenticator represents a handler that authenticates provided credentials.
+// Authenticator represents a handler that authenticates provided credentials.
 type Authenticator struct {
 	*Handler `json:",inline"`
 }
 
-//Authorizer represents a handler that authorizes the subject ("user") from the previously validated credentials making the request.
+// Authorizer represents a handler that authorizes the subject ("user") from the previously validated credentials making the request.
 type Authorizer struct {
 	*Handler `json:",inline"`
 }
 
-//Mutator represents a handler that transforms the HTTP request before forwarding it.
+// Mutator represents a handler that transforms the HTTP request before forwarding it.
 type Mutator struct {
 	*Handler `json:",inline"`
 }
 
-//Handler represents an Oathkeeper routine that operates on incoming requests. It is used to either validate a request (Authenticator, Authorizer) or modify it (Mutator).
+// Handler represents an Oathkeeper routine that operates on incoming requests. It is used to either validate a request (Authenticator, Authorizer) or modify it (Mutator).
 type Handler struct {
-	//Name is the name of a handler
+	// Name is the name of a handler
 	Name string `json:"handler"`
-	//Config configures the handler. Configuration keys vary per handler.
+	// Config configures the handler. Configuration keys vary per handler.
 	// +kubebuilder:validation:Type=object
 	Config *runtime.RawExtension `json:"config,omitempty"`
 }
 
-//ToOathkeeperRules transforms a RuleList object into a JSON object digestible by Oathkeeper
+// ToOathkeeperRules transforms a RuleList object into a JSON object digestible by Oathkeeper
 func (rl RuleList) ToOathkeeperRules() ([]byte, error) {
 
 	var rules []*RuleJSON

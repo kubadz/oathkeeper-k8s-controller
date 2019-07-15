@@ -2,17 +2,20 @@ package v1alpha1
 
 import "encoding/json"
 
+// RuleJson is a representation of an Oathkeeper rule.
 type RuleJSON struct {
 	ID       string `json:"id"`
 	RuleSpec `json:",inline"`
 }
 
+// UpstreamJSON is a representation of the Oathkeeper's upstream object
 type UpstreamJSON struct {
 	URL          string  `json:"url"`
 	StripPath    *string `json:"strip_path,omitempty"`
 	PreserveHost bool    `json:"preserve_host"`
 }
 
+// MarshalJSON is a custom marshal function that converts RuleJSON objects into JSON objects digestible by Oathkeeper
 func (rj RuleJSON) MarshalJSON() ([]byte, error) {
 
 	type Alias RuleJSON
