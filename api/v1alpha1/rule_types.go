@@ -97,7 +97,7 @@ func (rl RuleList) ToOathkeeperRules() ([]byte, error) {
 func (r Rule) ToRuleJSON() *RuleJSON {
 	return &RuleJSON{
 		ID:       r.Name + "." + r.Namespace,
-		RuleSpec: &r.Spec,
+		RuleSpec: r.Spec,
 	}
 }
 

@@ -54,37 +54,18 @@ var _ = Describe("Rule", func() {
 				Namespace: "default",
 			}
 
-			t := true
+			h := newHandler("sample-handler", "{}")
 
-			h := &Handler{
-				Name: "sample-handler",
-				Config: &runtime.RawExtension{
-					Raw: []byte("{}"),
-				},
-			}
-
-			rs := RuleSpec{
-				Upstream: &Upstream{
-					URL:          "https://url.com",
-					PreserveHost: &t,
-				},
-				Match: &Match{
-					URL:     "https://url2.com",
-					Methods: []string{"GET", "POST"},
-				},
-				Authenticators: []*Authenticator{&Authenticator{h}},
-				Authorizer:     &Authorizer{h},
-				Mutator:        &Mutator{h},
-			}
-
-			created = &Rule{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "sample-rule1",
-					Namespace: "default",
-				},
-				Spec:   rs,
-				Status: RuleStatus{},
-			}
+			created = newRule(
+				"sample-rule1",
+				"default",
+				"https://url.com",
+				"https://url2.com",
+				nil,
+				newBoolPtr(true),
+				[]*Authenticator{&Authenticator{h}},
+				&Authorizer{h},
+				&Mutator{h})
 
 			By("creating an API obj")
 			Expect(k8sClient.Create(context.TODO(), created)).To(Succeed())
@@ -164,6 +145,26 @@ var _ = Describe("Rule", func() {
         }
       }
     ]
+  },
+  {
+    "upstream": {
+      "url": "http://my-backend-service3",
+      "preserve_host": false
+    },
+    "id": "foo3.default",
+    "match": {
+      "url": "http://my-app/some-route3",
+      "methods": [
+        "GET",
+        "POST"
+      ]
+    },
+    "authorizer": {
+      "handler": "handler1",
+      "config": {
+        "key1": "val1"
+      }
+    }
   }
 ]`
 
@@ -185,70 +186,43 @@ var _ = Describe("Rule", func() {
 
 		It("Should return a JSON array of raw Oathkeeper rules", func() {
 
-			s := "/api/v1"
+			h1 := newHandler("handler1", sampleConfig)
+			h2 := newHandler("handler2", sampleConfig2)
 
-			t1 := true
-			t2 := false
+			rule1 := newRule(
+				"foo1",
+				"default",
+				"http://my-backend-service1",
+				"http://my-app/some-route1",
+				newStringPtr("/api/v1"),
+				newBoolPtr(true),
+				[]*Authenticator{&Authenticator{h1}},
+				nil,
+				&Mutator{h2})
 
-			h1 := &Handler{
-				Name: "handler1",
-				Config: &runtime.RawExtension{
-					Raw: []byte(sampleConfig),
-				},
-			}
+			rule2 := newRule(
+				"foo2",
+				"default",
+				"http://my-backend-service2",
+				"http://my-app/some-route2",
+				nil,
+				newBoolPtr(false),
+				[]*Authenticator{&Authenticator{h1}, {h2}},
+				nil,
+				nil)
 
-			h2 := &Handler{
-				Name: "handler2",
-				Config: &runtime.RawExtension{
-					Raw: []byte(sampleConfig2),
-				},
-			}
+			rule3 := newRule(
+				"foo3",
+				"default",
+				"http://my-backend-service3",
+				"http://my-app/some-route3",
+				nil,
+				nil,
+				nil,
+				&Authorizer{h1},
+				nil)
 
-			rs1 := RuleSpec{
-				Upstream: &Upstream{
-					URL:          "http://my-backend-service1",
-					StripPath:    &s,
-					PreserveHost: &t1,
-				},
-				Match: &Match{
-					URL:     "http://my-app/some-route1",
-					Methods: []string{"GET", "POST"},
-				},
-				Authenticators: []*Authenticator{&Authenticator{h1}},
-				Mutator:        &Mutator{h2},
-			}
-
-			rs2 := RuleSpec{
-				Upstream: &Upstream{
-					URL:          "http://my-backend-service2",
-					PreserveHost: &t2,
-				},
-				Match: &Match{
-					URL:     "http://my-app/some-route2",
-					Methods: []string{"GET", "POST"},
-				},
-				Authenticators: []*Authenticator{&Authenticator{h1}, {h2}},
-			}
-
-			created1 := Rule{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo1",
-					Namespace: "default",
-				},
-				Spec:   rs1,
-				Status: RuleStatus{},
-			}
-
-			created2 := Rule{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo2",
-					Namespace: "default",
-				},
-				Spec:   rs2,
-				Status: RuleStatus{},
-			}
-
-			list := &RuleList{Items: []Rule{created1, created2}}
+			list := &RuleList{Items: []Rule{*rule1, *rule2, *rule3}}
 
 			By("transforming the receiver into a slice of bytes")
 
@@ -256,7 +230,75 @@ var _ = Describe("Rule", func() {
 
 			Expect(err).To(BeNil())
 			Expect(string(raw)).To(Equal(template))
+		})
+	})
 
+	Context("ToRuleJSON", func() {
+
+		It("Should convert a Rule to JSON Rule", func() {
+
+			testHandler := newHandler("handler1", sampleConfig)
+
+			testRule := newRule(
+				"r1",
+				"test",
+				"https://upstream.url",
+				"https://match.this/url",
+				newStringPtr("/strip/me"),
+				newBoolPtr(true),
+				nil,
+				&Authorizer{testHandler},
+				nil)
+
+			actual := testRule.ToRuleJSON()
+
+			By("copying its spec and generating correct item ID")
+
+			Expect(actual.RuleSpec).To(Equal(testRule.Spec))
+			Expect(actual.ID).To(Equal("r1.test"))
 		})
 	})
 })
+
+func newRule(name, namespace, upstreamURL, matchURL string, stripURLPath *string, preserveURLHost *bool, authenticators []*Authenticator, authorizer *Authorizer, mutator *Mutator) *Rule {
+
+	spec := RuleSpec{
+		Upstream: &Upstream{
+			URL:          upstreamURL,
+			PreserveHost: preserveURLHost,
+			StripPath:    stripURLPath,
+		},
+		Match: &Match{
+			URL:     matchURL,
+			Methods: []string{"GET", "POST"},
+		},
+		Authenticators: authenticators,
+		Authorizer:     authorizer,
+		Mutator:        mutator,
+	}
+
+	return &Rule{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: spec,
+	}
+}
+
+func newHandler(name, config string) *Handler {
+	return &Handler{
+		Name: name,
+		Config: &runtime.RawExtension{
+			Raw: []byte(config),
+		},
+	}
+}
+
+func newBoolPtr(b bool) *bool {
+	return &b
+}
+
+func newStringPtr(s string) *string {
+	return &s
+}
