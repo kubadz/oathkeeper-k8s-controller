@@ -52,37 +52,51 @@ type RuleSpec struct {
 type RuleStatus struct {
 }
 
+// Upstream represents the location of a server where requests matching a rule should be forwarded to.
 type Upstream struct {
+	// URL defines the target URL for incoming requests
 	URL string `json:"url"`
+	// StripPath replaces the provided path prefix when forwarding the requested URL to the upstream URL.
 	// +optional
 	StripPath *string `json:"stripPath,omitempty"`
+	// PreserveHost includes the host and port of the url value if set to false. If true, the host and port of the ORY Oathkeeper Proxy will be used instead.
 	// +optional
 	PreserveHost *bool `json:"preserveHost,omitempty"`
 }
 
+// Match defines the URL(s) that an access rule should match.
 type Match struct {
+	//URL is the URL that should be matched. It supports regex templates.
 	URL     string   `json:"url"`
+	//Methods represent an array of HTTP methods (e.g. GET, POST, PUT, DELETE, ...)
 	Methods []string `json:"methods"`
 }
 
+//Authenticator represents a handler that authenticates provided credentials.
 type Authenticator struct {
 	*Handler `json:",inline"`
 }
 
+//Authorizer represents a handler that authorizes the subject ("user") from the previously validated credentials making the request.
 type Authorizer struct {
 	*Handler `json:",inline"`
 }
 
+//Mutator represents a handler that transforms the HTTP request before forwarding it.
 type Mutator struct {
 	*Handler `json:",inline"`
 }
 
+//Handler represents an Oathkeeper routine that operates on incoming requests. It is used to either validate a request (Authenticator, Authorizer) or modify it (Mutator).
 type Handler struct {
+	//Name is the name of a handler
 	Name string `json:"handler"`
+	//Config configures the handler. Configuration keys vary per handler.
 	// +kubebuilder:validation:Type=object
 	Config *runtime.RawExtension `json:"config,omitempty"`
 }
 
+//ToOathkeeperRules transforms a RuleList object into a JSON object digestible by Oathkeeper
 func (rl RuleList) ToOathkeeperRules() ([]byte, error) {
 
 	var rules []*RuleJSON
@@ -94,6 +108,7 @@ func (rl RuleList) ToOathkeeperRules() ([]byte, error) {
 	return json.MarshalIndent(rules, "", "  ")
 }
 
+// ToRuleJSON transforms a Rule object into an intermediary RuleJSON object
 func (r Rule) ToRuleJSON() *RuleJSON {
 	return &RuleJSON{
 		ID:       r.Name + "." + r.Namespace,
