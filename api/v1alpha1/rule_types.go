@@ -67,7 +67,7 @@ type Upstream struct {
 // Match defines the URL(s) that an access rule should match.
 type Match struct {
 	// URL is the URL that should be matched. It supports regex templates.
-	URL     string   `json:"url"`
+	URL string `json:"url"`
 	// Methods represent an array of HTTP methods (e.g. GET, POST, PUT, DELETE, ...)
 	Methods []string `json:"methods"`
 }
