@@ -22,6 +22,8 @@ import (
 	oathkeeperv1alpha1 "github.com/ory/oathkeeper-k8s-controller/api/v1alpha1"
 
 	apiv1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -73,6 +75,20 @@ func (r *RuleReconciler) updateRulesConfigmap(ctx context.Context, data string) 
 
 	err := r.Get(ctx, r.RuleConfigmap, &oathkeeperRulesConfigmap)
 	if err != nil {
+		if apierrs.IsNotFound(err) {
+
+			oathkeeperRulesConfigmap = apiv1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      r.RuleConfigmap.Name,
+					Namespace: r.RuleConfigmap.Namespace,
+				},
+				Data: map[string]string{"rules": data},
+			}
+
+			r.Create(ctx, &oathkeeperRulesConfigmap)
+			return nil
+		}
+
 		return err
 	}
 
