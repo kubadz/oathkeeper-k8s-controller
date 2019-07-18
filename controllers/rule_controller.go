@@ -73,8 +73,7 @@ func (r *RuleReconciler) updateRulesConfigmap(ctx context.Context, data string) 
 
 	var oathkeeperRulesConfigmap apiv1.ConfigMap
 
-	err := r.Get(ctx, r.RuleConfigmap, &oathkeeperRulesConfigmap)
-	if err != nil {
+	if err := r.Get(ctx, r.RuleConfigmap, &oathkeeperRulesConfigmap); err != nil {
 		if apierrs.IsNotFound(err) {
 
 			oathkeeperRulesConfigmap = apiv1.ConfigMap{
@@ -85,7 +84,10 @@ func (r *RuleReconciler) updateRulesConfigmap(ctx context.Context, data string) 
 				Data: map[string]string{"rules": data},
 			}
 
-			r.Create(ctx, &oathkeeperRulesConfigmap)
+			if err := r.Create(ctx, &oathkeeperRulesConfigmap); err != nil {
+				return nil
+			}
+
 			return nil
 		}
 
@@ -95,8 +97,7 @@ func (r *RuleReconciler) updateRulesConfigmap(ctx context.Context, data string) 
 	oathkeeperRulesConfigmapCopy := oathkeeperRulesConfigmap.DeepCopy()
 	oathkeeperRulesConfigmapCopy.Data = map[string]string{"rules": data}
 
-	err = r.Update(ctx, oathkeeperRulesConfigmapCopy)
-	if err != nil {
+	if err := r.Update(ctx, oathkeeperRulesConfigmapCopy); err != nil {
 		return err
 	}
 
