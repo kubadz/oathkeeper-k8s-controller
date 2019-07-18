@@ -8,13 +8,6 @@ type RuleJSON struct {
 	RuleSpec `json:",inline"`
 }
 
-// UpstreamJSON is a representation of the Oathkeeper's upstream object
-type UpstreamJSON struct {
-	URL          string  `json:"url"`
-	StripPath    *string `json:"strip_path,omitempty"`
-	PreserveHost *bool   `json:"preserve_host"`
-}
-
 // MarshalJSON is a custom marshal function that converts RuleJSON objects into JSON objects digestible by Oathkeeper
 func (rj RuleJSON) MarshalJSON() ([]byte, error) {
 
@@ -31,4 +24,11 @@ func (rj RuleJSON) MarshalJSON() ([]byte, error) {
 		},
 		Alias: (Alias)(rj),
 	})
+}
+
+// UpstreamJSON is a helper struct that representats Oathkeeper's upstream object.
+type UpstreamJSON struct {
+	URL          string  `json:"url"`
+	StripPath    *string `json:"strip_path,omitempty"`
+	PreserveHost *bool   `json:"preserve_host"`
 }
