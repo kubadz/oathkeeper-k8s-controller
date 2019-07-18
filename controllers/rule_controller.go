@@ -17,10 +17,12 @@ package controllers
 
 import (
 	"context"
+	"os"
 
 	"github.com/go-logr/logr"
 	oathkeeperv1alpha1 "github.com/ory/oathkeeper-k8s-controller/api/v1alpha1"
 
+	"github.com/avast/retry-go"
 	apiv1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -84,11 +86,14 @@ func (r *RuleReconciler) updateRulesConfigmap(ctx context.Context, data string) 
 				Data: map[string]string{"rules": data},
 			}
 
-			if err := r.Create(ctx, &oathkeeperRulesConfigmap); err != nil {
-				return nil
-			}
+			err := retry.Do(func() error {
+				return r.Create(ctx, &oathkeeperRulesConfigmap)
+			})
 
-			return nil
+			if err != nil {
+				r.Log.Error(err, "unable to create configmap")
+				os.Exit(1)
+			}
 		}
 
 		return err
