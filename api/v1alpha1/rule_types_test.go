@@ -103,6 +103,9 @@ var _ = Describe("Rule", func() {
         }
       }
     ],
+    "authorizer": {
+      "handler": "allow"
+    },
     "mutator": {
       "handler": "handler2",
       "config": {
@@ -144,7 +147,13 @@ var _ = Describe("Rule", func() {
           ]
         }
       }
-    ]
+    ],
+    "authorizer": {
+      "handler": "allow"
+    },
+    "mutator": {
+      "handler": "noop"
+    }
   },
   {
     "upstream": {
@@ -159,21 +168,29 @@ var _ = Describe("Rule", func() {
         "POST"
       ]
     },
+    "authenticators": [
+      {
+        "handler": "noop"
+      }
+    ],
     "authorizer": {
       "handler": "handler1",
       "config": {
         "key1": "val1"
       }
+    },
+    "mutator": {
+      "handler": "noop"
     }
   }
 ]`
 
-	sampleConfig := `{
+	var sampleConfig = `{
   "key1": "val1"
 }
 `
 
-	sampleConfig2 := `{
+	var sampleConfig2 = `{
   "key1": [
     "val1",
     "val2",
@@ -235,9 +252,42 @@ var _ = Describe("Rule", func() {
 
 	Context("ToRuleJSON", func() {
 
-		It("Should convert a Rule to JSON Rule", func() {
+		It("Should convert a Rule with no handlers to JSON Rule", func() {
 
-			testHandler := newHandler("handler1", sampleConfig)
+			testRule := newRule(
+				"r1",
+				"test",
+				"https://upstream.url",
+				"https://match.this/url",
+				newStringPtr("/strip/me"),
+				nil,
+				nil,
+				nil,
+				nil)
+
+			actual := testRule.ToRuleJSON()
+
+			By("copying its spec, adding default handlers and generating correct item ID")
+
+			Expect(actual.ID).To(Equal("r1.test"))
+
+			Expect(actual.RuleSpec.Authenticators).NotTo(BeNil())
+			Expect(actual.RuleSpec.Authenticators).NotTo(BeEmpty())
+			Expect(actual.RuleSpec.Authenticators).To(HaveLen(1))
+			Expect(actual.RuleSpec.Authenticators[0].Handler).To(Equal(noopHandler))
+
+			Expect(actual.RuleSpec.Authorizer).NotTo(BeNil())
+			Expect(actual.RuleSpec.Authorizer.Handler).To(Equal(allowHandler))
+
+			Expect(actual.RuleSpec.Mutator).NotTo(BeNil())
+			Expect(actual.RuleSpec.Mutator.Handler).To(Equal(noopHandler))
+
+			Expect(*actual.RuleSpec.Upstream.PreserveHost).To(BeFalse())
+		})
+
+		It("Should convert a Rule with specified handlers to JSON Rule", func() {
+
+			testHandler := newHandler("test-handler", "")
 
 			testRule := newRule(
 				"r1",
@@ -246,16 +296,16 @@ var _ = Describe("Rule", func() {
 				"https://match.this/url",
 				newStringPtr("/strip/me"),
 				newBoolPtr(true),
-				nil,
+				[]*Authenticator{&Authenticator{testHandler}},
 				&Authorizer{testHandler},
-				nil)
+				&Mutator{testHandler})
 
 			actual := testRule.ToRuleJSON()
 
 			By("copying its spec and generating correct item ID")
 
-			Expect(actual.RuleSpec).To(Equal(testRule.Spec))
 			Expect(actual.ID).To(Equal("r1.test"))
+			Expect(actual.RuleSpec).To(Equal(testRule.Spec))
 		})
 	})
 })
@@ -286,13 +336,19 @@ func newRule(name, namespace, upstreamURL, matchURL string, stripURLPath *string
 	}
 }
 
-func newHandler(name, config string) *Handler {
-	return &Handler{
+func newHandler(name string, config string) *Handler {
+
+	h := &Handler{
 		Name: name,
-		Config: &runtime.RawExtension{
-			Raw: []byte(config),
-		},
 	}
+
+	if config != "" {
+		h.Config = &runtime.RawExtension{
+			Raw: []byte(config),
+		}
+	}
+
+	return h
 }
 
 func newBoolPtr(b bool) *bool {

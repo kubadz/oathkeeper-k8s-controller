@@ -21,6 +21,17 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+const (
+	allow = "allow"
+	noop  = "noop"
+)
+
+var (
+	noopHandler         = &Handler{Name: noop}
+	allowHandler        = &Handler{Name: allow}
+	preserveHostDefault = false
+)
+
 // +kubebuilder:object:root=true
 // Rule is the Schema for the rules API
 type Rule struct {
@@ -110,10 +121,27 @@ func (rl RuleList) ToOathkeeperRules() ([]byte, error) {
 
 // ToRuleJSON transforms a Rule object into an intermediary RuleJSON object
 func (r Rule) ToRuleJSON() *RuleJSON {
-	return &RuleJSON{
+
+	ruleJSON := &RuleJSON{
 		ID:       r.Name + "." + r.Namespace,
 		RuleSpec: r.Spec,
 	}
+
+	if ruleJSON.Authenticators == nil {
+		ruleJSON.Authenticators = []*Authenticator{{noopHandler}}
+	}
+	if ruleJSON.Authorizer == nil {
+		ruleJSON.Authorizer = &Authorizer{allowHandler}
+	}
+	if ruleJSON.Mutator == nil {
+		ruleJSON.Mutator = &Mutator{noopHandler}
+	}
+
+	if ruleJSON.Upstream.PreserveHost == nil {
+		ruleJSON.Upstream.PreserveHost = &preserveHostDefault
+	}
+
+	return ruleJSON
 }
 
 func init() {

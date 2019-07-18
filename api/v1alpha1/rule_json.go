@@ -12,7 +12,7 @@ type RuleJSON struct {
 type UpstreamJSON struct {
 	URL          string  `json:"url"`
 	StripPath    *string `json:"strip_path,omitempty"`
-	PreserveHost bool    `json:"preserve_host"`
+	PreserveHost *bool   `json:"preserve_host"`
 }
 
 // MarshalJSON is a custom marshal function that converts RuleJSON objects into JSON objects digestible by Oathkeeper
@@ -26,18 +26,9 @@ func (rj RuleJSON) MarshalJSON() ([]byte, error) {
 	}{
 		Upstream: &UpstreamJSON{
 			URL:          rj.Upstream.URL,
-			PreserveHost: parsePreserveHost(rj.Upstream.PreserveHost),
+			PreserveHost: rj.Upstream.PreserveHost,
 			StripPath:    rj.Upstream.StripPath,
 		},
 		Alias: (Alias)(rj),
 	})
-}
-
-func parsePreserveHost(b *bool) bool {
-
-	if b == nil {
-		return false
-	}
-
-	return *b
 }
